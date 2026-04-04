@@ -181,7 +181,7 @@ fun ArticleView(
             ArticleTopBar(
                 show = showToolBar,
                 isScrolled = scrollState.showTopDivider,
-                articleId = article.id,
+                article = article,
                 canDeletePage = article.isPages,
                 canSaveExternally = canSaveExternally,
                 onDeletePage = onDeletePage,
@@ -315,4 +315,3 @@ private fun rememberContentPadding(pinToolbars: Boolean): PaddingValues {
         PaddingValues()
     }
 }
-

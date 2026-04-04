@@ -30,9 +30,9 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
-import okio.IOException
 import org.jsoup.Jsoup
 import retrofit2.Response
+import java.io.IOException
 import java.time.ZonedDateTime
 import com.jocmp.minifluxclient.Feed as MinifluxFeed
 
@@ -65,11 +65,14 @@ internal class MinifluxAccountDelegate(
         val entryIDs = articleIDs.map { it.toLong() }
 
         return withErrorHandling {
-            miniflux.updateEntries(
-                UpdateEntriesRequest(
-                    entry_ids = entryIDs,
-                    status = EntryStatus.READ
-                )
+            requireSuccess(
+                miniflux.updateEntries(
+                    UpdateEntriesRequest(
+                        entry_ids = entryIDs,
+                        status = EntryStatus.READ
+                    )
+                ),
+                action = "mark entries as read",
             )
             Unit
         }
@@ -79,11 +82,14 @@ internal class MinifluxAccountDelegate(
         val entryIDs = articleIDs.map { it.toLong() }
 
         return withErrorHandling {
-            miniflux.updateEntries(
-                UpdateEntriesRequest(
-                    entry_ids = entryIDs,
-                    status = EntryStatus.UNREAD
-                )
+            requireSuccess(
+                miniflux.updateEntries(
+                    UpdateEntriesRequest(
+                        entry_ids = entryIDs,
+                        status = EntryStatus.UNREAD
+                    )
+                ),
+                action = "mark entries as unread",
             )
             Unit
         }
@@ -94,7 +100,7 @@ internal class MinifluxAccountDelegate(
 
         return withErrorHandling {
             entryIDs.forEach { entryID ->
-                miniflux.toggleBookmark(entryID)
+                syncBookmark(entryID, starred = true)
             }
             Unit
         }
@@ -105,7 +111,7 @@ internal class MinifluxAccountDelegate(
 
         return withErrorHandling {
             entryIDs.forEach { entryID ->
-                miniflux.toggleBookmark(entryID)
+                syncBookmark(entryID, starred = false)
             }
             Unit
         }
@@ -128,13 +134,14 @@ internal class MinifluxAccountDelegate(
 
     override suspend fun saveArticleExternally(articleID: String): Result<Unit> {
         return try {
-            val response = miniflux.saveEntry(articleID.toLong())
-            if (response.isSuccessful) {
-                Result.success(Unit)
-            } else {
-                Result.failure(IOException("Save failed"))
-            }
+            requireSuccess(
+                miniflux.saveEntry(articleID.toLong()),
+                action = "save entry externally",
+            )
+            Result.success(Unit)
         } catch (e: IOException) {
+            Result.failure(e)
+        } catch (e: UnauthorizedError) {
             Result.failure(e)
         }
     }
@@ -152,6 +159,9 @@ internal class MinifluxAccountDelegate(
             val response = miniflux.createFeed(
                 CreateFeedRequest(feed_url = url, category_id = categoryId)
             )
+            if (response.code() == 401) {
+                return AddFeedResult.saveFailure()
+            }
             val createResponse = response.body()
 
             if (response.code() > 300 || createResponse == null) {
@@ -159,6 +169,9 @@ internal class MinifluxAccountDelegate(
             }
 
             val feedResponse = miniflux.feed(createResponse.feed_id)
+            if (feedResponse.code() == 401) {
+                return AddFeedResult.saveFailure()
+            }
             val feed = feedResponse.body()
 
             return if (feed != null) {
@@ -193,9 +206,12 @@ internal class MinifluxAccountDelegate(
             findOrCreateCategory(folderTitle)
         }
 
-        miniflux.updateFeed(
-            feedID = feed.id.toLong(),
-            request = UpdateFeedRequest(title = title, category_id = categoryId)
+        requireSuccess(
+            miniflux.updateFeed(
+                feedID = feed.id.toLong(),
+                request = UpdateFeedRequest(title = title, category_id = categoryId)
+            ),
+            action = "update feed",
         )
 
         database.transactionWithErrorHandling {
@@ -231,13 +247,19 @@ internal class MinifluxAccountDelegate(
         oldTitle: String,
         newTitle: String
     ): Result<Unit> = withErrorHandling {
-        val categories = miniflux.categories().body() ?: emptyList()
+        val categories = requireBody(
+            miniflux.categories(),
+            action = "load categories",
+        )
         val category = categories.find { it.title == oldTitle }
 
         if (category != null) {
-            miniflux.updateCategory(
-                categoryID = category.id,
-                request = UpdateCategoryRequest(title = newTitle)
+            requireSuccess(
+                miniflux.updateCategory(
+                    categoryID = category.id,
+                    request = UpdateCategoryRequest(title = newTitle)
+                ),
+                action = "update category",
             )
 
             taggingRecords.updateTitle(previousTitle = oldTitle, title = newTitle)
@@ -247,17 +269,26 @@ internal class MinifluxAccountDelegate(
     }
 
     override suspend fun removeFeed(feed: Feed): Result<Unit> = withErrorHandling {
-        miniflux.deleteFeed(feedID = feed.id.toLong())
+        requireSuccess(
+            miniflux.deleteFeed(feedID = feed.id.toLong()),
+            action = "delete feed",
+        )
 
         Unit
     }
 
     override suspend fun removeFolder(folderTitle: String): Result<Unit> = withErrorHandling {
-        val categories = miniflux.categories().body() ?: emptyList()
+        val categories = requireBody(
+            miniflux.categories(),
+            action = "load categories",
+        )
         val category = categories.find { it.title == folderTitle }
 
         if (category != null) {
-            miniflux.deleteCategory(categoryID = category.id)
+            requireSuccess(
+                miniflux.deleteCategory(categoryID = category.id),
+                action = "delete category",
+            )
             taggingRecords.deleteByFolderName(folderTitle)
         }
 
@@ -277,15 +308,10 @@ internal class MinifluxAccountDelegate(
     }
 
     private suspend fun refreshFeeds() {
-        val refreshResponse = miniflux.feeds()
-        val initialFeeds = refreshResponse.body()
-
-        if (!refreshResponse.isSuccessful || initialFeeds == null) {
-            return
-        }
-
-        val feedsResponse = miniflux.feeds()
-        val feeds = feedsResponse.body() ?: return
+        val feeds = requireBody(
+            miniflux.feeds(),
+            action = "load feeds",
+        )
 
         val icons = fetchIcons(feeds)
 
@@ -328,12 +354,18 @@ internal class MinifluxAccountDelegate(
     private suspend fun fetchAllEntryIDs(
         fetch: suspend (offset: Int) -> Response<EntryResultSet>
     ): List<String> {
-        val firstPage = fetch(0).body() ?: return emptyList()
+        val firstPage = requireBody(
+            fetch(0),
+            action = "load entry ids",
+        )
         val ids = firstPage.entries.map { it.id.toString() }.toMutableList()
 
         var offset = MAX_ENTRY_LIMIT
         while (ids.size < firstPage.total) {
-            val page = fetch(offset).body() ?: break
+            val page = requireBody(
+                fetch(offset),
+                action = "load entry ids",
+            )
             if (page.entries.isEmpty()) break
             ids.addAll(page.entries.map { it.id.toString() })
             offset += MAX_ENTRY_LIMIT
@@ -348,12 +380,15 @@ internal class MinifluxAccountDelegate(
         var hasMore = true
 
         while (hasMore) {
-            val result = miniflux.entries(
-                limit = limit,
-                offset = offset,
-                order = "published_at",
-                direction = "desc"
-            ).body() ?: return
+            val result = requireBody(
+                miniflux.entries(
+                    limit = limit,
+                    offset = offset,
+                    order = "published_at",
+                    direction = "desc"
+                ),
+                action = "load entries",
+            )
 
             saveEntries(result.entries)
             offset += limit
@@ -402,6 +437,20 @@ internal class MinifluxAccountDelegate(
         }
     }
 
+    private suspend fun syncBookmark(entryID: Long, starred: Boolean) {
+        val entry = requireBody(
+            miniflux.entry(entryID),
+            action = "load entry",
+        )
+
+        if (entry.starred != starred) {
+            requireSuccess(
+                miniflux.toggleBookmark(entryID),
+                action = "toggle entry bookmark",
+            )
+        }
+    }
+
     private fun upsertFeed(feed: MinifluxFeed, icons: Map<Long, String>) {
         val icon = feed.icon?.icon_id?.let { icons[it] }
 
@@ -426,14 +475,19 @@ internal class MinifluxAccountDelegate(
     }
 
     private suspend fun findOrCreateCategory(title: String): Long {
-        val categories = miniflux.categories().body() ?: emptyList()
+        val categories = requireBody(
+            miniflux.categories(),
+            action = "load categories",
+        )
         val existing = categories.find { it.title == title }
 
         return if (existing != null) {
             existing.id
         } else {
-            val response = miniflux.createCategory(CreateCategoryRequest(title = title))
-            response.body()?.id ?: throw IOException("Failed to create category")
+            requireBody(
+                miniflux.createCategory(CreateCategoryRequest(title = title)),
+                action = "create category",
+            ).id
         }
     }
 
@@ -459,6 +513,28 @@ internal class MinifluxAccountDelegate(
                 }
             }
         }.awaitAll().filterNotNull().toMap()
+    }
+
+    private fun <T> requireBody(response: Response<T>, action: String): T {
+        if (response.code() == 401) {
+            throw UnauthorizedError()
+        }
+
+        if (!response.isSuccessful) {
+            throw IOException("Failed to $action: HTTP ${response.code()}")
+        }
+
+        return response.body() ?: throw IOException("Failed to $action: empty response")
+    }
+
+    private fun requireSuccess(response: Response<*>, action: String) {
+        if (response.code() == 401) {
+            throw UnauthorizedError()
+        }
+
+        if (!response.isSuccessful) {
+            throw IOException("Failed to $action: HTTP ${response.code()}")
+        }
     }
 
     companion object {

@@ -182,6 +182,9 @@ class AppPreferences(context: Context) {
         val swipeEnd: Preference<RowSwipeOption>
             get() = preferenceStore.getEnum("article_list_swipe_end", RowSwipeOption.default)
 
+        val lightweightMode: Preference<Boolean>
+            get() = preferenceStore.getBoolean("article_list_lightweight_mode", false)
+
         val swipeBottom: Preference<ArticleListVerticalSwipe>
             get() = preferenceStore.getEnum(
                 "article_list_swipe_bottom",

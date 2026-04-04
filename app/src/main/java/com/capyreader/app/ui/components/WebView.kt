@@ -154,6 +154,7 @@ class WebViewState(
 ) {
     private var htmlId: String? = null
     private var contentHash: Int = 0
+    private var lastShowImages: Boolean? = null
     private var currentAudioUrl: String? = null
     private var isAudioPlaying: Boolean = false
 
@@ -165,13 +166,14 @@ class WebViewState(
         val id = article.id
         val hash = article.content.hashCode()
 
-        if (id == htmlId && hash == contentHash) {
+        if (id == htmlId && hash == contentHash && showImages == lastShowImages) {
             return
         }
 
         webView.isVerticalScrollBarEnabled = enableNativeScroll
         htmlId = id
         contentHash = hash
+        lastShowImages = showImages
 
         val client = webView.webViewClient as? AccompanistWebViewClient
         client?.pageUrl = article.url?.toString()
@@ -237,6 +239,7 @@ fun rememberWebViewState(
     val enableNativeScroll by rememberTalkbackPreference()
     val colors = articleTemplateColors()
     val context = LocalContext.current
+    val onOpenLinkState = rememberUpdatedState(onOpenLink)
     val currentAudioUrlState by rememberUpdatedState(currentAudioUrl)
     val isAudioPlayingState by rememberUpdatedState(isAudioPlaying)
 
@@ -252,11 +255,11 @@ fun rememberWebViewState(
                 .addPathHandler("/assets/", AssetsPathHandler(context))
                 .addPathHandler("/res/", ResourcesPathHandler(context))
                 .build(),
-            onOpenLink = onOpenLink,
+            onOpenLink = { url -> onOpenLinkState.value(url) },
         )
     }
 
-    return remember {
+    return remember(reset) {
         val webViewInterface = WebViewInterface(
             navigateToMedia = { onNavigateToMedia(it) },
             onRequestLinkDialog = onRequestLinkDialog,

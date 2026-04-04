@@ -222,6 +222,8 @@
     <string name="settings_support_button">Support</string>
     <string name="settings_donate_button">Donate</string>
     <string name="settings_article_list_title">Article List</string>
+    <string name="settings_article_list_lightweight_title">Lightweight list</string>
+    <string name="settings_article_list_lightweight_subtitle">Disables left and right swipe actions and list item animations for smoother scrolling.</string>
     <string name="opml_exporter_success">Export complete</string>
     <string name="opml_exporter_failure">Export failed</string>
     <string name="starred_export_button_text">Export Starred Articles</string>

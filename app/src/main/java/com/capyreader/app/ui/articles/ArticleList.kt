@@ -70,8 +70,13 @@ fun ArticleList(
             ) {
                 items(count = articles.itemCount, key = articles.itemKey { it.id }) { index ->
                     val item = articles[index]
+                    val itemModifier = if (articleOptions.lightweightMode) {
+                        Modifier
+                    } else {
+                        Modifier.animateItem()
+                    }
 
-                    Box(Modifier.animateItem()) {
+                    Box(itemModifier) {
                         if (item == null) {
                             PlaceholderArticleRow(articleOptions.imagePreview)
                         } else {
@@ -188,6 +193,7 @@ fun rememberArticleOptions(appPreferences: AppPreferences = koinInject()): Artic
     val shortenTitles by appPreferences.articleListOptions.shortenTitles.stateIn(scope)
         .collectAsState()
     val accentColors by appPreferences.accentColors.stateIn(scope).collectAsState()
+    val lightweightMode by appPreferences.articleListOptions.lightweightMode.stateIn(scope).collectAsState()
 
     return ArticleRowOptions(
         showSummary = showSummary,
@@ -197,6 +203,7 @@ fun rememberArticleOptions(appPreferences: AppPreferences = koinInject()): Artic
         fontScale = fontScale,
         shortenTitles = shortenTitles,
         accentColors = accentColors,
+        lightweightMode = lightweightMode,
     )
 }
 

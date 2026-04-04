@@ -153,6 +153,8 @@
     <string name="settings_clear_all_articles_button">清除所有文章</string>
     <string name="settings_support_button">支持</string>
     <string name="settings_article_list_title">文章列表</string>
+    <string name="settings_article_list_lightweight_title">轻量列表</string>
+    <string name="settings_article_list_lightweight_subtitle">关闭左右滑动作和列表项动画，以获得更顺滑的滚动体验。</string>
     <string name="settings_clear_all_articles_text">确定要从设备中删除所有已读、未加星标的文章吗？此操作无法撤销。</string>
     <string name="settings_gestures_reader_swipe_up">向上滑动</string>
     <string name="article_vertical_swipe_full_content">加载完整内容</string>

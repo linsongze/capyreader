@@ -85,7 +85,9 @@ class UpdateLoginViewModel(
         )
 
     private fun updateAccount(result: Credentials) {
+        account.preferences.username.set(result.username)
         account.preferences.password.set(result.secret)
+        account.preferences.clientCertAlias.set(result.clientCertAlias)
     }
 
     private fun loginError() = Error("Error logging in")

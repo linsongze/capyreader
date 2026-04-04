@@ -93,6 +93,8 @@ fun GeneralSettingsPanel(
             updateMarkReadOnScroll = viewModel::updateMarkReadOnScroll,
             confirmMarkAllRead = viewModel.confirmMarkAllRead,
             markReadOnScroll = viewModel.markReadOnScroll,
+            lightweightArticleList = viewModel.lightweightArticleList,
+            updateLightweightArticleList = viewModel::updateLightweightArticleList,
             afterReadAll = viewModel.afterReadAll,
             updateAfterReadAll = viewModel::updateAfterReadAll,
             updateStickyFullContent = viewModel::updateStickyFullContent,
@@ -120,6 +122,8 @@ fun GeneralSettingsPanelView(
     enableStickyFullContent: Boolean,
     updateConfirmMarkAllRead: (enable: Boolean) -> Unit,
     updateMarkReadOnScroll: (enable: Boolean) -> Unit,
+    lightweightArticleList: Boolean,
+    updateLightweightArticleList: (enable: Boolean) -> Unit,
     afterReadAll: AfterReadAllBehavior,
     updateAfterReadAll: (behavior: AfterReadAllBehavior) -> Unit,
     confirmMarkAllRead: Boolean,
@@ -153,6 +157,17 @@ fun GeneralSettingsPanelView(
                     checked = showTodayFilter,
                     onCheckedChange = updateShowTodayFilter,
                     title = stringResource(R.string.settings_option_show_today_filter)
+                )
+            }
+        }
+
+        FormSection(title = stringResource(R.string.settings_article_list_title)) {
+            RowItem {
+                TextSwitch(
+                    checked = lightweightArticleList,
+                    onCheckedChange = updateLightweightArticleList,
+                    title = stringResource(R.string.settings_article_list_lightweight_title),
+                    subtitle = stringResource(R.string.settings_article_list_lightweight_subtitle),
                 )
             }
         }
@@ -366,6 +381,8 @@ private fun GeneralSettingsPanelPreview() {
                 markReadOnScroll = true,
                 updateConfirmMarkAllRead = {},
                 updateMarkReadOnScroll = {},
+                lightweightArticleList = false,
+                updateLightweightArticleList = {},
                 confirmMarkAllRead = true,
                 updateStickyFullContent = {},
                 enableStickyFullContent = true,

@@ -4,6 +4,7 @@ import android.content.res.Configuration
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -78,6 +79,7 @@ data class ArticleRowOptions(
     val shortenTitles: Boolean = true,
     val accentColors: Boolean = false,
     val dim: Boolean = true,
+    val lightweightMode: Boolean = false,
 )
 
 @Composable
@@ -116,6 +118,7 @@ fun ArticleRow(
             onClick = { onSelect(article.id) },
             onLongClick = openArticleMenu,
             article = article,
+            lightweightMode = options.lightweightMode,
         ) {
             ArticleListItem(
                 headlineContent = {
@@ -368,12 +371,20 @@ private fun ArticleBox(
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     article: Article,
+    lightweightMode: Boolean,
     content: @Composable () -> Unit
 ) {
-    ArticleRowSwipeBox(article) {
+    ArticleRowSwipeBox(
+        article = article,
+        enabled = !lightweightMode,
+    ) {
+        val interactionSource = remember { MutableInteractionSource() }
+
         Box(
             Modifier
                 .combinedClickable(
+                    interactionSource = interactionSource,
+                    indication = null,
                     onClick = onClick,
                     onLongClick = onLongClick,
                     onLongClickLabel = stringResource(R.string.article_actions_open_menu)

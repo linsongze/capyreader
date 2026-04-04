@@ -8,11 +8,12 @@ import me.saket.swipe.SwipeableActionsBox
 @Composable
 fun ArticleRowSwipeBox(
     article: Article,
+    enabled: Boolean = true,
     content: @Composable () -> Unit
 ) {
     val swipeState = rememberArticleRowSwipeState(article = article)
 
-    if (swipeState.disabled) {
+    if (!enabled || swipeState.disabled) {
         content()
     } else {
         SwipeableActionsBox(

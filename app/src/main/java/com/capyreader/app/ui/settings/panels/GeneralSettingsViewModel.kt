@@ -41,6 +41,9 @@ class GeneralSettingsViewModel(
     var markReadOnScroll by mutableStateOf(appPreferences.articleListOptions.markReadOnScroll.get())
         private set
 
+    var lightweightArticleList by mutableStateOf(appPreferences.articleListOptions.lightweightMode.get())
+        private set
+
     var afterReadAll by mutableStateOf(appPreferences.articleListOptions.afterReadAllBehavior.get())
         private set
 
@@ -107,6 +110,12 @@ class GeneralSettingsViewModel(
         appPreferences.articleListOptions.markReadOnScroll.set(enable)
 
         markReadOnScroll = enable
+    }
+
+    fun updateLightweightArticleList(enable: Boolean) {
+        appPreferences.articleListOptions.lightweightMode.set(enable)
+
+        lightweightArticleList = enable
     }
 
     fun clearAllArticles() {

@@ -6,9 +6,12 @@ import com.jocmp.capy.ArticleFilter
 import com.jocmp.capy.InMemoryDataStore
 import com.jocmp.capy.InMemoryDatabaseProvider
 import com.jocmp.capy.accounts.AddFeedResult
+import com.jocmp.capy.common.UnauthorizedError
 import com.jocmp.capy.db.Database
+import com.jocmp.capy.fixtures.ArticleFixture
 import com.jocmp.capy.fixtures.FeedFixture
 import com.jocmp.capy.persistence.EnclosureRecords
+import com.jocmp.capy.persistence.articleMapper
 import com.jocmp.minifluxclient.Category
 import com.jocmp.minifluxclient.CreateCategoryRequest
 import com.jocmp.minifluxclient.CreateFeedRequest
@@ -32,6 +35,7 @@ import io.mockk.mockkObject
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 import retrofit2.Response
+import java.io.IOException
 import java.net.SocketTimeoutException
 import kotlin.test.BeforeTest
 import kotlin.test.assertEquals
@@ -250,6 +254,41 @@ class MinifluxAccountDelegateTest {
     }
 
     @Test
+    fun refresh_unauthorizedDoesNotClearExistingStatuses() = runTest {
+        val localFeed = feedFixture.create(
+            feedID = arsTechnicaFeed.id.toString(),
+            feedURL = arsTechnicaFeed.feed_url,
+            title = arsTechnicaFeed.title,
+        )
+        val localArticle = ArticleFixture(database).create(
+            id = arsTechnicaArticle.id.toString(),
+            feed = localFeed,
+            read = false,
+            starred = true,
+        )
+
+        coEvery { miniflux.feeds() }.returns(Response.success(listOf(arsTechnicaFeed)))
+        coEvery { miniflux.icon(1) }.returns(
+            Response.success(IconData(id = 1, data = "image/png;base64,abc", mime_type = "image/png"))
+        )
+        coEvery { miniflux.entries(starred = true, limit = 100, offset = 0) }.returns(
+            errorResponse(401)
+        )
+
+        val result = delegate.refresh(ArticleFilter.default())
+
+        val refreshedArticle = database.articlesQueries.findBy(
+            articleID = localArticle.id,
+            mapper = ::articleMapper,
+        ).executeAsOne()
+
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull() is UnauthorizedError)
+        assertEquals(expected = false, actual = refreshedArticle.read)
+        assertEquals(expected = true, actual = refreshedArticle.starred)
+    }
+
+    @Test
     fun markRead() = runTest {
         val id = 777L
 
@@ -265,6 +304,16 @@ class MinifluxAccountDelegateTest {
                 )
             )
         }
+    }
+
+    @Test
+    fun markRead_nonSuccessfulResponseFails() = runTest {
+        coEvery { miniflux.updateEntries(any()) } returns errorResponse(500)
+
+        val result = delegate.markRead(listOf("777"))
+
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull() is IOException)
     }
 
     @Test
@@ -289,6 +338,7 @@ class MinifluxAccountDelegateTest {
     fun addStar() = runTest {
         val id = 777L
 
+        coEvery { miniflux.entry(id) }.returns(Response.success(arsTechnicaArticle.copy(id = id, starred = false)))
         coEvery { miniflux.toggleBookmark(any()) } returns Response.success(Unit)
 
         delegate.addStar(listOf(id.toString()))
@@ -297,14 +347,48 @@ class MinifluxAccountDelegateTest {
     }
 
     @Test
+    fun addStar_unauthorizedResponseFails() = runTest {
+        coEvery { miniflux.entry(777L) }.returns(Response.success(arsTechnicaArticle.copy(id = 777L, starred = false)))
+        coEvery { miniflux.toggleBookmark(any()) } returns errorResponse(401)
+
+        val result = delegate.addStar(listOf("777"))
+
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull() is UnauthorizedError)
+    }
+
+    @Test
+    fun addStar_isNoOpWhenAlreadyStarred() = runTest {
+        val id = 777L
+
+        coEvery { miniflux.entry(id) }.returns(Response.success(arsTechnicaArticle.copy(id = id, starred = true)))
+
+        delegate.addStar(listOf(id.toString()))
+
+        coVerify(exactly = 0) { miniflux.toggleBookmark(any()) }
+    }
+
+    @Test
     fun removeStar() = runTest {
         val id = 777L
 
+        coEvery { miniflux.entry(id) }.returns(Response.success(arsTechnicaArticle.copy(id = id, starred = true)))
         coEvery { miniflux.toggleBookmark(any()) } returns Response.success(Unit)
 
         delegate.removeStar(listOf(id.toString()))
 
         coVerify { miniflux.toggleBookmark(id) }
+    }
+
+    @Test
+    fun removeStar_isNoOpWhenAlreadyUnstarred() = runTest {
+        val id = 777L
+
+        coEvery { miniflux.entry(id) }.returns(Response.success(arsTechnicaArticle.copy(id = id, starred = false)))
+
+        delegate.removeStar(listOf(id.toString()))
+
+        coVerify(exactly = 0) { miniflux.toggleBookmark(any()) }
     }
 
     @Test
@@ -453,5 +537,9 @@ class MinifluxAccountDelegateTest {
 
         assertEquals(expected = 1, actual = allTaggings.size)
         assertEquals(expected = 0, actual = nonScienceTaggings.size)
+    }
+
+    private fun <T> errorResponse(code: Int): Response<T> {
+        return Response.error(code, mockk(relaxed = true))
     }
 }
