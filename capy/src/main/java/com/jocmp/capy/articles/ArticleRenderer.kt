@@ -38,12 +38,6 @@ class ArticleRenderer(
             article.title
         }
 
-        val feedName = if (showPlaceholderTitle) {
-            ""
-        } else {
-            article.feedName
-        }
-
         val content = buildContent(article, hideImages)
 
         val titleFontFamily = if (titleFollowsBodyFont.get()) {
@@ -56,7 +50,7 @@ class ArticleRenderer(
             "external_link" to article.externalLink(),
             "title" to title,
             "byline" to byline,
-            "feed_name" to feedName,
+            "feed_name" to "",
             "font_size" to "${textSize.get()}px",
             "font_family" to fontFamily.slug,
             "font_preload" to fontPreload(fontFamily),
