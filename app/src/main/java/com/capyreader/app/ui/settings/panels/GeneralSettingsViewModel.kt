@@ -53,9 +53,9 @@ class GeneralSettingsViewModel(
     var showTodayFilter by mutableStateOf(appPreferences.showTodayFilter.get())
         private set
 
-    val keywordBlocklist = account
+    val filterKeywords = account
         .preferences
-        .keywordBlocklist
+        .filterKeywords
         .stateIn(viewModelScope)
 
     fun updateRefreshInterval(interval: RefreshInterval) {
@@ -124,14 +124,14 @@ class GeneralSettingsViewModel(
         }
     }
 
-    fun addBlockedKeyword(keyword: String) {
-        account.preferences.keywordBlocklist.getAndSet { list ->
+    fun addFilterKeyword(keyword: String) {
+        account.preferences.filterKeywords.getAndSet { list ->
             list.toMutableSet().apply { add(keyword) }
         }
     }
 
-    fun removeBlockedKeyword(keyword: String) {
-        account.preferences.keywordBlocklist.getAndSet { list ->
+    fun removeFilterKeyword(keyword: String) {
+        account.preferences.filterKeywords.getAndSet { list ->
             list.toMutableSet().apply { remove(keyword) }
         }
     }

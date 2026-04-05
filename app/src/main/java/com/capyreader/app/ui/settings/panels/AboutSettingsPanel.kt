@@ -1,5 +1,6 @@
 package com.capyreader.app.ui.settings.panels
 
+import android.content.ClipData
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,13 +22,17 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import com.capyreader.app.BuildConfig.VERSION_NAME
@@ -35,13 +40,18 @@ import com.capyreader.app.R
 import com.capyreader.app.ui.LocalLinkOpener
 import com.capyreader.app.ui.components.FormSection
 import com.capyreader.app.ui.theme.CapyTheme
+import kotlinx.coroutines.launch
 
 @Composable
 fun AboutSettingsPanel() {
-    val context = LocalContext.current
-    val clipboardManager = LocalClipboardManager.current
+    val clipboard = LocalClipboard.current
+    val scope = rememberCoroutineScope()
     val copyVersionToClipboard = {
-        clipboardManager.setText(AnnotatedString("Capy Reader $VERSION_NAME"))
+        scope.launch {
+            clipboard.setClipEntry(
+                ClipEntry(ClipData.newPlainText("", "Capy Reader $VERSION_NAME"))
+            )
+        }
     }
 
     val linkOpener = LocalLinkOpener.current
@@ -102,7 +112,13 @@ fun AboutSettingsPanel() {
         FormSection {
             Box(Modifier.padding(horizontal = 4.dp)) {
                 TextButton(onClick = { linkOpener.open(Support.ABOUT_URL.toUri()) }) {
-                    Text("Made with ♥ in ✶✶✶✶")
+                    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr ) {
+                        Text(
+                            text = "Made with ♥ in ✶✶✶✶",
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Left
+                        )
+                    }
                 }
             }
         }

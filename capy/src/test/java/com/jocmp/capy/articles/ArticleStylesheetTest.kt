@@ -15,6 +15,9 @@ class ArticleStylesheetTest {
 
     private fun stylesheetFile(): File {
         val candidates = listOf(
+            File("../app/src/main/assets/stylesheet.css"),
+            File("app/src/main/assets/stylesheet.css"),
+            File("../capy/src/main/assets/stylesheet.css"),
             File("src/main/assets/stylesheet.css"),
             File("capy/src/main/assets/stylesheet.css"),
         )

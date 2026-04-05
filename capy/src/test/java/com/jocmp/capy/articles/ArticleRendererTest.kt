@@ -1,13 +1,8 @@
 package com.jocmp.capy.articles
 
-import android.content.Context
-import android.content.res.Resources
 import com.jocmp.capy.Article
 import com.jocmp.capy.InMemoryPreference
-import com.jocmp.capy.R
-import io.mockk.every
-import io.mockk.mockk
-import java.io.ByteArrayInputStream
+import java.io.File
 import java.time.ZonedDateTime
 import kotlin.test.Test
 import kotlin.test.assertContains
@@ -51,17 +46,9 @@ class ArticleRendererTest {
         assertContains(html, title)
     }
 
-    private fun buildRenderer(template: String = defaultTemplate): ArticleRenderer {
-        val resources = mockk<Resources>()
-        val context = mockk<Context>()
-
-        every { context.resources } returns resources
-        every { resources.openRawResource(R.raw.template) } returns ByteArrayInputStream(
-            template.toByteArray()
-        )
-
+    private fun buildRenderer(template: String = templateFile().readText()): ArticleRenderer {
         return ArticleRenderer(
-            context = context,
+            template = template,
             textSize = preference(16),
             fontOption = preference(FontOption.SYSTEM_DEFAULT),
             titleFontSize = preference(24),
@@ -96,6 +83,19 @@ class ArticleRendererTest {
         store = mutableMapOf()
     )
 
+    private fun templateFile(): File {
+        val candidates = listOf(
+            File("../app/src/main/res/raw/template.html"),
+            File("app/src/main/res/raw/template.html"),
+            File("../capy/src/main/res/raw/template.html"),
+            File("capy/src/main/res/raw/template.html"),
+            File("src/main/res/raw/template.html"),
+        )
+
+        return candidates.firstOrNull(File::exists)
+            ?: error("Unable to locate template.html for article detail tests")
+    }
+
     companion object {
         private val now = ZonedDateTime.parse("2026-01-01T00:00:00Z")
 
@@ -112,26 +112,5 @@ class ArticleRendererTest {
             "color_surface_container" to "#666666",
             "color_surface_tint" to "#777777",
         )
-
-        private val defaultTemplate = """
-            <!DOCTYPE html>
-            <html dir="auto">
-              <head></head>
-              <body>
-                <article role="main">
-                  <header>
-                    <a class="article__header" href="{{external_link}}">
-                      <h1 class="article__title article__title--font-{{title_font_family}}">{{title}}</h1>
-                      <div>{{byline}}</div>
-                      <div>{{feed_name}}</div>
-                    </a>
-                  </header>
-                  <div class="article__body article__body--font-{{font_family}}">
-                    <div id="article-body-content">{{body}}</div>
-                  </div>
-                </article>
-              </body>
-            </html>
-        """.trimIndent()
     }
 }

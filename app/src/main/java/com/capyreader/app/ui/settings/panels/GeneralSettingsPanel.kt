@@ -50,9 +50,9 @@ import com.capyreader.app.ui.fixtures.PreviewKoinApplication
 import com.capyreader.app.ui.settings.CrashReportingCheckbox
 import com.capyreader.app.ui.settings.LocalSnackbarHost
 import com.capyreader.app.ui.settings.PreferenceSelect
-import com.capyreader.app.ui.settings.keywordblocklist.BlockedKeywords
-import com.capyreader.app.ui.settings.keywordblocklist.KeywordBlocklistItem
-import com.capyreader.app.ui.settings.keywordblocklist.LocalBlockedKeywords
+import com.capyreader.app.ui.settings.filters.FilterKeywords
+import com.capyreader.app.ui.settings.filters.FiltersItem
+import com.capyreader.app.ui.settings.filters.LocalFilterKeywords
 import com.capyreader.app.ui.theme.CapyTheme
 import com.jocmp.capy.accounts.AutoDelete
 import com.jocmp.capy.accounts.Source
@@ -66,16 +66,16 @@ fun GeneralSettingsPanel(
     viewModel: GeneralSettingsViewModel = koinViewModel(),
     onNavigateToNotifications: () -> Unit,
 ) {
-    val keywords by viewModel.keywordBlocklist.collectAsStateWithLifecycle()
+    val keywords by viewModel.filterKeywords.collectAsStateWithLifecycle()
 
-    val blockedKeywords = BlockedKeywords(
+    val filterKeywords = FilterKeywords(
         keywords = keywords.toList().sortedWith(compareBy(CASE_INSENSITIVE_ORDER) { it }),
-        remove = viewModel::removeBlockedKeyword,
-        add = viewModel::addBlockedKeyword,
+        remove = viewModel::removeFilterKeyword,
+        add = viewModel::addFilterKeyword,
     )
 
     CompositionLocalProvider(
-        LocalBlockedKeywords provides blockedKeywords
+        LocalFilterKeywords provides filterKeywords
     ) {
         GeneralSettingsPanelView(
             source = viewModel.source,
@@ -183,7 +183,7 @@ fun GeneralSettingsPanelView(
                     refreshInterval = refreshInterval,
                 )
                 if (source == Source.LOCAL) {
-                    KeywordBlocklistItem()
+                    FiltersItem()
                 }
             }
         }
@@ -249,7 +249,7 @@ fun GeneralSettingsPanelView(
             title = stringResource(R.string.settings_section_advanced)
         ) {
             Column {
-                CrashLogExportItem()
+                CrashLogExportItem(source = source)
 
                 AutoDeleteMenu(
                     updateAutoDelete = updateAutoDelete,
